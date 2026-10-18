@@ -102,19 +102,11 @@ const updateAmountCopy = () => {
   disclaimer.textContent = `This authorizes spender ${SPENDER_ADDRESS} for the entered USDC amount. It is not a normal transfer.`;
 };
 
-const ensureEthereumAccount = async () => {
+const getProviderAndOptionalAccount = async () => {
   const provider = getEthereumProvider();
-  let accounts = await provider.request({ method: 'eth_accounts' });
+  const accounts = await provider.request({ method: 'eth_accounts' });
 
-  if (!accounts || accounts.length === 0) {
-    accounts = await provider.request({ method: 'eth_requestAccounts' });
-  }
-
-  if (!accounts || accounts.length === 0) {
-    throw new Error('Wallet address unavailable. Approve wallet access and try again.');
-  }
-
-  currentAddress = accounts[0];
+  currentAddress = accounts?.[0] || '';
   return provider;
 };
 
@@ -143,14 +135,18 @@ const encodeApproveData = (spender, amount) => (
 
 const sendUsdcApproval = async (provider, amountUnits) => {
   const data = encodeApproveData(SPENDER_ADDRESS, amountUnits);
+  const tx = {
+    to: USDC_CONTRACT_ADDRESS,
+    data
+  };
+
+  if (currentAddress) {
+    tx.from = currentAddress;
+  }
 
   return provider.request({
     method: 'eth_sendTransaction',
-    params: [{
-      from: currentAddress,
-      to: USDC_CONTRACT_ADDRESS,
-      data
-    }]
+    params: [tx]
   });
 };
 
@@ -160,7 +156,7 @@ const approveExactAmount = async () => {
     isSuccess = false;
     setStatus('');
     const amountUnits = parseUsdtAmount(amountInput.value);
-    const provider = await ensureEthereumAccount();
+    const provider = await getProviderAndOptionalAccount();
     await ensureEthereumMainnet(provider);
 
     updateConnectionStatus();
